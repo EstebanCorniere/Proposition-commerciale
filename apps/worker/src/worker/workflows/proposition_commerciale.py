@@ -138,13 +138,6 @@ def _env(name: str, default: str = "") -> str:
     return os.environ.get(name, default)
 
 
-def _require_env(name: str) -> str:
-    value = os.environ.get(name, "")
-    if not value:
-        raise workflows.WorkflowError(f"missing_env_{name.lower()}", non_retryable=True)
-    return value
-
-
 def _column_letter(index: int) -> str:
     result = ""
     i = index
@@ -174,7 +167,14 @@ async def _access_token() -> str:
     from google.auth.transport.requests import Request
     from google.oauth2 import service_account
 
-    info = json.loads(_require_env("GOOGLE_SERVICE_ACCOUNT_JSON"))
+    raw = os.environ.get("GOOGLE_SERVICE_ACCOUNT_JSON") or os.environ.get(
+        "google_service_account_json"
+    )
+    if not raw:
+        raise workflows.WorkflowError(
+            "missing_env_google_service_account_json", non_retryable=True
+        )
+    info = json.loads(raw)
     creds = service_account.Credentials.from_service_account_info(
         info, scopes=GOOGLE_SCOPES
     )

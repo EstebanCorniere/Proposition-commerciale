@@ -48,9 +48,10 @@ Pour un déclenchement strictement à la saisie, option : un Google Apps Script
    (<https://console.mistral.ai/secrets>) avec le contenu du fichier JSON de la clé.
 5. Lier ce secret au déploiement : page
    <https://console.mistral.ai/workflows/deployments/proposition-commerciale?tab=settings>
-   → ajouter un binding : variable d'environnement `GOOGLE_SERVICE_ACCOUNT_JSON`
-   ← secret workspace `google_service_account_json`. La valeur est lue par le
-   worker **au démarrage** : après le binding, redéployer le déploiement.
+   → ajouter un binding : secret workspace `google_service_account_json` → variable
+   d'environnement `GOOGLE_SERVICE_ACCOUNT_JSON` (si le nom de variable est laissé
+   vide, il vaut `google_service_account_json` — le code accepte les deux). La valeur
+   est lue par le worker **au démarrage** : après le binding, redéployer le déploiement.
 6. Créer le schedule du workflow `proposition_commerciale` (intervalle `PT1M`).
 
 ## Développement local
