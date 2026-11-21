@@ -265,43 +265,22 @@ def _upload_files(name: str, data: bytes, parents: list[str] | None) -> dict:
 
 
 async def _drive_upload(token: str, folder_id: str, name: str, data: bytes) -> dict:
-    params = {"uploadType": "multipart", "fields": "id,name,webViewLink"}
+    # A service account can only create files inside a folder shared with it, so the
+    # upload targets the output folder and a 403/404 means that share is missing.
     resp = await _google_request(
         "POST",
         f"{DRIVE_UPLOAD_API}/files",
         token,
-        params=params,
+        params={"uploadType": "multipart", "fields": "id,name,webViewLink"},
         files=_upload_files(name, data, [folder_id] if folder_id else None),
         timeout=180,
-        allow_statuses={404},
+        allow_statuses={403, 404},
     )
-    if resp.status_code == 404 and folder_id:
-        # The output folder is not shared with the service account: upload to the
-        # account's own Drive root instead, then share the file with the owner.
-        resp = await _google_request(
-            "POST",
-            f"{DRIVE_UPLOAD_API}/files",
-            token,
-            params=params,
-            files=_upload_files(name, data, None),
-            timeout=180,
+    if resp.status_code in {403, 404}:
+        raise workflows.WorkflowError(
+            "drive_upload_forbidden_share_output_folder_with_service_account",
+            non_retryable=True,
         )
-        meta = resp.json()
-        share_email = _env("DRIVE_SHARE_EMAIL", "")
-        if share_email and meta.get("id"):
-            await _google_request(
-                "POST",
-                f"{DRIVE_API}/files/{meta['id']}/permissions",
-                token,
-                params={"fields": "id"},
-                json_body={
-                    "role": "reader",
-                    "type": "user",
-                    "emailAddress": share_email,
-                },
-                allow_statuses={403, 404},
-            )
-        return meta
     return resp.json()
 
 

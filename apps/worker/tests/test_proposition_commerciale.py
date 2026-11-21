@@ -192,11 +192,9 @@ def test_pdf_name_sanitizes_client_name() -> None:
     assert pc._pdf_name("", "2026-11-21") == "Proposition_-_client_-_2026-11-21.pdf"
 
 
-async def test_drive_upload_falls_back_when_folder_not_shared(
+async def test_drive_upload_raises_clear_error_when_folder_not_shared(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    calls: list[tuple[str, dict]] = []
-
     class _Resp:
         def __init__(self, status: int, payload: dict) -> None:
             self.status_code = status
@@ -206,21 +204,8 @@ async def test_drive_upload_falls_back_when_folder_not_shared(
             return self._payload
 
     async def fake_request(method: str, url: str, token: str, **kw) -> _Resp:
-        calls.append((url, kw))
-        files = kw.get("files") or {}
-        metadata = files.get("metadata")
-        if metadata and "parents" in metadata[1]:
-            return _Resp(404, {})
-        if "/permissions" in url:
-            return _Resp(200, {"id": "perm-1"})
-        return _Resp(
-            200, {"id": "f-1", "name": "n.pdf", "webViewLink": "https://x/f-1"}
-        )
+        return _Resp(404, {})
 
     monkeypatch.setattr(pc, "_google_request", fake_request)
-    monkeypatch.setenv("DRIVE_SHARE_EMAIL", "owner@example.com")
-    meta = await pc._drive_upload("tok", "folder-1", "n.pdf", b"%PDF-1.4")
-    assert meta["id"] == "f-1"
-    uploads = [c for c in calls if c[0].endswith("/files")]
-    grants = [c for c in calls if "/permissions" in c[0]]
-    assert len(uploads) == 2 and len(grants) == 1
+    with pytest.raises(pc.workflows.WorkflowError, match="share_output_folder"):
+        await pc._drive_upload("tok", "folder-1", "n.pdf", b"%PDF-1.4")
