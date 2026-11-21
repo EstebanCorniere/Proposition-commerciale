@@ -45,9 +45,13 @@ Pour un déclenchement strictement à la saisie, option : un Google Apps Script
 3. Partager la feuille « Clients fictifs » (éditeur) et le dossier Drive
    `0AJP4oNWffCarUk9PVA` (éditeur) avec l'email du compte de service.
 4. Dans Mistral Studio, créer le **secret workspace** `google_service_account_json`
-   contenant le JSON de la clé, et le lier au déploiement (env var
-   `GOOGLE_SERVICE_ACCOUNT_JSON`).
-5. Créer le schedule du workflow `proposition_commerciale` (intervalle `PT1M`).
+   (<https://console.mistral.ai/secrets>) avec le contenu du fichier JSON de la clé.
+5. Lier ce secret au déploiement : page
+   <https://console.mistral.ai/workflows/deployments/proposition-commerciale?tab=settings>
+   → ajouter un binding : variable d'environnement `GOOGLE_SERVICE_ACCOUNT_JSON`
+   ← secret workspace `google_service_account_json`. La valeur est lue par le
+   worker **au démarrage** : après le binding, redéployer le déploiement.
+6. Créer le schedule du workflow `proposition_commerciale` (intervalle `PT1M`).
 
 ## Développement local
 
