@@ -42,8 +42,12 @@ Pour un déclenchement strictement à la saisie, option : un Google Apps Script
 
 1. Projet Google Cloud : activer **Google Sheets API** et **Google Drive API**.
 2. Créer un **compte de service**, télécharger sa clé JSON.
-3. Partager la feuille « Clients fictifs » (éditeur) et le dossier Drive
-   `0AJP4oNWffCarUk9PVA` (éditeur) avec l'email du compte de service.
+3. Partager avec l'email du compte de service (rôle éditeur) :
+   - la feuille « Clients fictifs » ;
+   - **le dossier Drive lui-même** `0AJP4oNWffCarUk9PVA` (pas seulement le modèle
+     qu'il contient) : c'est lui qui recevra les PDF générés. Sans ce partage du
+     dossier, le workflow remonte les PDF dans le Drive du compte de service et les
+     partage en lecture avec `DRIVE_SHARE_EMAIL` (défaut `estebancorniere@gmail.com`).
 4. Dans Mistral Studio, créer le **secret workspace** `google_service_account_json`
    (<https://console.mistral.ai/secrets>) avec le contenu du fichier JSON de la clé.
 5. Lier ce secret au déploiement : page

@@ -193,6 +193,7 @@ async def _google_request(
     json_body: dict | None = None,
     files: dict | None = None,
     timeout: float = 60,
+    allow_statuses: set[int] | None = None,
 ):
     import httpx
 
@@ -205,7 +206,7 @@ async def _google_request(
             json=json_body,
             files=files,
         )
-    if resp.status_code >= 400:
+    if resp.status_code >= 400 and resp.status_code not in (allow_statuses or set()):
         retryable = resp.status_code in {429, 500, 502, 503, 504}
         raise workflows.WorkflowError(
             f"google_http_{resp.status_code}", non_retryable=not retryable
@@ -253,20 +254,54 @@ async def _drive_download(token: str, file_id: str) -> bytes:
     return resp.content
 
 
-async def _drive_upload(token: str, folder_id: str, name: str, data: bytes) -> dict:
-    metadata = {"name": name, "mimeType": "application/pdf", "parents": [folder_id]}
-    files = {
+def _upload_files(name: str, data: bytes, parents: list[str] | None) -> dict:
+    metadata: dict = {"name": name, "mimeType": "application/pdf"}
+    if parents:
+        metadata["parents"] = parents
+    return {
         "metadata": (None, json.dumps(metadata), "application/json"),
         "file": (name, data, "application/pdf"),
     }
+
+
+async def _drive_upload(token: str, folder_id: str, name: str, data: bytes) -> dict:
+    params = {"uploadType": "multipart", "fields": "id,name,webViewLink"}
     resp = await _google_request(
         "POST",
         f"{DRIVE_UPLOAD_API}/files",
         token,
-        params={"uploadType": "multipart", "fields": "id,name,webViewLink"},
-        files=files,
+        params=params,
+        files=_upload_files(name, data, [folder_id] if folder_id else None),
         timeout=180,
+        allow_statuses={404},
     )
+    if resp.status_code == 404 and folder_id:
+        # The output folder is not shared with the service account: upload to the
+        # account's own Drive root instead, then share the file with the owner.
+        resp = await _google_request(
+            "POST",
+            f"{DRIVE_UPLOAD_API}/files",
+            token,
+            params=params,
+            files=_upload_files(name, data, None),
+            timeout=180,
+        )
+        meta = resp.json()
+        share_email = _env("DRIVE_SHARE_EMAIL", "")
+        if share_email and meta.get("id"):
+            await _google_request(
+                "POST",
+                f"{DRIVE_API}/files/{meta['id']}/permissions",
+                token,
+                params={"fields": "id"},
+                json_body={
+                    "role": "reader",
+                    "type": "user",
+                    "emailAddress": share_email,
+                },
+                allow_statuses={403, 404},
+            )
+        return meta
     return resp.json()
 
 
